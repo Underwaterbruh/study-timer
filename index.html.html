@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Primary Timer</title>
+<meta name="theme-color" content="#0b1113">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Primary">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Primary%20Timer%22%2C%22short_name%22%3A%22Primary%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230b1113%22%2C%22theme_color%22%3A%22%230b1113%22%2C%22start_url%22%3A%22.%22%7D">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b1113'/%3E%3Cpath d='M8 50 H40 L46 26 L54 74 L60 50 H92' fill='none' stroke='%2337e0c4' stroke-width='5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b1113'/%3E%3Cpath d='M8 50 H40 L46 26 L54 74 L60 50 H92' fill='none' stroke='%2337e0c4' stroke-width='5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0b1113; --panel:#111a1d; --line:#1e2d31;
+  --ink:#dfeef0; --dim:#7f9297; --faint:#516066;
+  --focus:#37e0c4; --break:#c9a84a; --done:#8e7cff;
+  --mono:"SFMono-Regular",ui-monospace,"Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:"Helvetica Neue",Inter,system-ui,-apple-system,sans-serif;
+  --accent:var(--focus);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+  display:flex;flex-direction:column;align-items:center;
+  padding:max(20px,env(safe-area-inset-top)) 20px max(24px,env(safe-area-inset-bottom));
+  min-height:100%;overflow-x:hidden;transition:background .6s ease;}
+body.is-break{background:#12100a}
+body.is-done{background:#0f0d18}
+.top{width:100%;max-width:440px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.brand{font-family:var(--mono);font-size:11px;letter-spacing:.26em;color:var(--faint);text-transform:uppercase}
+.sound{background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--mono);
+  font-size:11px;padding:5px 9px;border-radius:7px;cursor:pointer;letter-spacing:.08em}
+.sound:active{transform:scale(.96)}
+.stage{width:100%;max-width:440px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:20px;padding:6px 0}
+.msg-wrap{min-height:78px;display:flex;align-items:center;justify-content:center;text-align:center;
+  border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:11px;
+  padding:16px 18px;background:var(--panel);transition:border-color .6s ease}
+.msg{font-size:16px;line-height:1.45;font-weight:500;letter-spacing:-.01em;
+  opacity:0;transform:translateY(6px);transition:opacity .5s ease,transform .5s ease}
+.msg.show{opacity:1;transform:none}
+.dial{position:relative;width:100%;aspect-ratio:1;max-width:300px;margin:0 auto;
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:6;stroke-linecap:round}
+.ring .bg{stroke:var(--line)}
+.ring .fg{stroke:var(--accent);transition:stroke-dashoffset .95s linear,stroke .6s ease;
+  filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 55%,transparent))}
+.state{font-family:var(--mono);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent);transition:color .6s ease}
+.time{font-family:var(--mono);font-size:62px;font-weight:600;letter-spacing:-.02em;line-height:1;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.of{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.1em;text-align:center;padding:0 12px}
+.pips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:2px}
+.pip{flex:1;max-width:46px;min-width:12px;height:5px;border-radius:3px;background:var(--line);transition:background .4s ease}
+.pip.done{background:var(--focus)}
+.pip.active{background:var(--focus);box-shadow:0 0 8px var(--focus)}
+.pip.activebreak{background:var(--break);box-shadow:0 0 8px var(--break)}
+
+/* study-time slider */
+.setup{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px 16px;margin-top:2px;transition:opacity .3s ease}
+.setup.locked{opacity:.4;pointer-events:none}
+.setup-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.setup-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+.setup-val{font-family:var(--mono);font-size:14px;color:var(--focus);font-weight:600}
+.setup-val span{color:var(--dim);font-weight:400}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;
+  background:linear-gradient(90deg,var(--focus) var(--pct,50%),var(--line) var(--pct,50%));outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--focus);border:3px solid var(--bg);box-shadow:0 0 8px color-mix(in srgb,var(--focus) 60%,transparent);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--focus);border:3px solid var(--bg);cursor:pointer}
+.ticks{display:flex;justify-content:space-between;margin-top:7px;font-family:var(--mono);font-size:9.5px;color:var(--faint);letter-spacing:.05em}
+
+.controls{display:flex;gap:12px;width:100%;max-width:440px;margin-top:14px}
+.btn{flex:1;font-family:var(--mono);font-size:14px;letter-spacing:.1em;text-transform:uppercase;
+  padding:16px 12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  cursor:pointer;transition:transform .1s ease,background .2s ease,border-color .2s ease}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:#04110e;border-color:var(--accent);font-weight:700;flex:2}
+.btn.ghost{color:var(--dim)}
+.btn:disabled{opacity:.35;cursor:default}
+.hint{width:100%;max-width:440px;margin-top:14px;font-family:var(--mono);font-size:10.5px;color:var(--faint);line-height:1.7;text-align:center;letter-spacing:.02em}
+.hint b{color:var(--dim);font-weight:600}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">Primary · Focus Block</div>
+    <button class="sound" id="sound">SOUND ON</button>
+  </div>
+
+  <div class="stage">
+    <div class="msg-wrap"><div class="msg" id="msg"></div></div>
+    <div class="dial">
+      <svg class="ring" viewBox="0 0 240 240">
+        <circle class="bg" cx="120" cy="120" r="112"/>
+        <circle class="fg" id="fg" cx="120" cy="120" r="112"/>
+      </svg>
+      <div class="state" id="state">Ready</div>
+      <div class="time" id="time">25:00</div>
+      <div class="of" id="of">Session 1 of 4</div>
+    </div>
+    <div class="pips" id="pips"></div>
+  </div>
+
+  <div class="setup" id="setup">
+    <div class="setup-row">
+      <span class="setup-label">Study time</span>
+      <span class="setup-val" id="setupVal">2 h 00 <span>· 4 sessions</span></span>
+    </div>
+    <input type="range" id="dur" min="30" max="240" step="30" value="120" aria-label="Study time">
+    <div class="ticks"><span>30m</span><span>1h</span><span>2h</span><span>3h</span><span>4h</span></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="main">Start</button>
+    <button class="btn ghost" id="skip" disabled>Skip</button>
+    <button class="btn ghost" id="reset" disabled>Reset</button>
+  </div>
+
+  <div class="hint">
+    25 min focus · 5 min break · proper break every 2 h.<br>
+    <b>Phone in another room. One tab, one book, one page.</b>
+  </div>
+
+<script>
+const MESSAGES = ["You're not going to feel like it. Start anyway.", "The scrolling isn't restful and you know it. Open the notes.", "25 minutes. You've wasted longer than that deciding what to eat.", "Nobody's coming to make you do this. Bit grim, but useful.", "You don't need a plan for the next three hours. Just this block.", "Reading it again isn't studying. Close the book and try to recall it.", "The exam doesn't care that you're tired. Neither, apparently, do I.", "Start badly. Badly is still infinitely more than not at all.", "You already know avoiding it feels worse than doing it. Every time.", "Two hours of this beats a whole day of pretending to study.", "The topic you keep skipping is the one that's going to be on the paper.", "Momentum is real and you're currently at zero. Fix the zero.", "Put the phone in another room. Yes, actually. Not face-down. Another room.", "You've cannulated a shaking three-year-old. You can read about the kidney.", "This is boring. Boring is fine. Boring is most of passing.", "Future-you either thanks you or curses you. Your call, right now.", "It won't take as long as the dread is telling you it will.", "You're not behind because you're incapable. You're behind because you keep not starting.", "Do the block. Have the opinion about the block afterwards.", "The confusion is the point. If it were obvious, there'd be no exam.", "One SAQ. Written, not admired. Go.", "You can stop at 25 minutes. You know you won't, but you can.", "Motivation is not going to arrive first. It shows up after you start.", "Half-asleep and studying beats wide-awake and 'about to'.", "The deck doesn't care about your mood. Rude of it, honestly.", "You're allowed to do this badly. You're not allowed to keep postponing it.", "Right now the only enemy is the version of you reaching for the phone.", "It's 25 minutes, not a personality transplant. Sit down.", "The syllabus is huge. This block is not. Do the not-huge thing.", "Definitions with units. The examiner is petty about it, so be petty back.", "You've done harder things at 3am on no sleep. This is a chair and a book.", "Perfectionism is just procrastination that thinks it's better than you.", "Nobody remembers the day they started studying. They remember passing.", "Stop researching how to study and study.", "The wall you're hitting is normal. Push, it's thinner than it feels.", "You're not stuck. You're unstarted. Different problem, easier fix.", "Answer it wrong, then find out why. That's the whole trick.", "Tired is a state, not a verdict. Start the block anyway.", "It's fine if this session is mediocre. Stacked mediocre sessions pass exams.", "The best study session is the one that actually happens. Low bar. Clear it.", "You keep thinking you need more time. You need fewer open tabs.", "Say it out loud from memory. If you can't, you didn't know it. Good to find out now.", "This is not an emergency. You handle those for a living. Handle this too.", "The dread ends the second you open the file. It's very undramatic.", "Whatever you avoid gets bigger. Open the thing you're avoiding first.", "You don't have to want to. Wanting to is not on the required list.", "25 minutes of you versus the topic. Reasonable odds. Take the bet.", "Being smart was never the plan. Being consistent was. Start.", "The pass is just a lot of sessions like this one, minus the theatrics.", "Close the tabs you're 'keeping for later'. Later isn't coming for those.", "You'll never feel fully ready. Ready is a story procrastinators tell themselves.", "Do it now while it's hard so it's automatic when a patient needs it.", "One topic further than yesterday. That's the entire ambition today.", "Bored means you stopped running from it. That's progress, weirdly.", "The clock's honest with you. Return the favour for 25 minutes.", "You're not lazy. You're avoidant. Those need different fixes. This is the fix.", "The graph you can draw today is a mark you keep. Cheap marks. Take them.", "Discipline is just doing it while unimpressed with yourself. Very doable.", "Your patients don't need you inspired. They need you to know the physiology.", "Stop negotiating with the timer. It's more reliable than tired-you.", "The first ten minutes are the worst. Then you forget you didn't want to.", "You've read worse things than this chapter. Consent forms, for one.", "Small and boring and daily. That's the unglamorous machine that works.", "Every expert was a registrar who didn't quit on a Tuesday like this.", "Feelings about studying are weather. The block is what you actually control.", "Get one fact wrong today that you got wrong yesterday, and beat it.", "The exam is pass/fail. This moment is start/skip. Only one of those helps.", "Rest is on the other side of the block, not this side. Sorry.", "You survived the roster that got you here. You'll survive this chapter.", "Don't admire the study plan. The plan doesn't do the studying.", "It's meant to feel like effort. That's not a sign to stop.", "You can do almost anything for 25 minutes, including things you hate.", "The topic won't get easier by waiting. It'll just get later.", "Overwhelmed? Then you're looking at the whole syllabus. Look at one line instead.", "Nobody's watching to give you credit for starting. Do it uncredited.", "The version of you that already passed would find this session unremarkable. Be that.", "Turn the page you've been dodging. It weighs less than the avoidance.", "Consistency is a skill, not a trait. Every block is a rep.", "This is the dull middle bit. The dull middle bit is where it's decided.", "Fear of the exam shrinks a little every time you actually face it. Face it.", "Pick up where past-you left the note. That's free momentum. Use it.", "You're one block less unprepared than this morning. Repeat until exam.", "Start now and momentum does the part willpower's bad at.", "The work is genuinely the only way through. Annoying, but true.", "Quietly competent beats loudly stressed. Do the quiet thing.", "You don't need a better mood. You need the first sentence read.", "Skipping today doesn't disappear. It just moves to a worse day.", "It's a chair, a timer, and a topic. The rest is you talking yourself out of it.", "Recall is uncomfortable because it's working. Sit in the discomfort.", "The best time to start was earlier. The only time available is now.", "You've got the intelligence. This was always about the sitting down.", "Don't count how many sessions are left. Just make this one count.", "Tonight you'll be glad you didn't blink. You know this from experience.", "The exam's hard so that passing it means something. Go earn the meaning.", "One clean, structured answer now. Structure is half the marks and all of the calm.", "You're not required to enjoy this. You're required to do it. Lower bar. Clear it.", "The dread is louder than the task. It's always louder than the task.", "You keep waiting to feel ready. It is not a feeling that is coming. Start.", "Doing it annoyed is still doing it. Annoyed is a perfectly good state to work in.", "Press start. The rest of the excuses can wait 25 minutes."];
+const FOCUS=25*60, BREAK=5*60, LONG=15*60;
+
+// build the phase plan from a number of focus sessions
+function buildPlan(n){
+  const p=[];
+  for(let i=1;i<=n;i++){
+    p.push({type:'focus',len:FOCUS,s:i});
+    if(i===n) p.push({type:'long',len:LONG});           // final proper break
+    else if(i%4===0) p.push({type:'long',len:LONG});    // proper break every 2 h
+    else p.push({type:'break',len:BREAK});              // 5-min break otherwise
+  }
+  return p;
+}
+
+const $=id=>document.getElementById(id);
+const R=112, CIRC=2*Math.PI*R;
+$('fg').style.strokeDasharray=CIRC;
+
+let durMin=parseInt(localStorage.getItem('primaryDurMin')||'120',10);
+let sessions=Math.max(1,Math.round(durMin/30));
+let PLAN=buildPlan(sessions);
+let idx=0, remaining=PLAN[0].len, running=false, endAt=0, raf=null, soundOn=true;
+
+function totalFocus(){ return PLAN.filter(p=>p.type==='focus').length; }
+function fmtDur(m){ return m>=60 ? `${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}` : `${m} min`; }
+
+function syncSlider(){
+  const el=$('dur');
+  el.value=durMin;
+  const pct=(durMin-30)/(240-30)*100;
+  el.style.setProperty('--pct',pct+'%');
+  $('setupVal').innerHTML=`${fmtDur(durMin)} <span>· ${sessions} session${sessions>1?'s':''}</span>`;
+}
+
+// ---- message cycling ----
+function nextMessage(){
+  let i=parseInt(localStorage.getItem('primaryMsgIdx')||'-1',10);
+  i=(i+1)%MESSAGES.length;
+  localStorage.setItem('primaryMsgIdx',i);
+  const el=$('msg'); el.classList.remove('show');
+  setTimeout(()=>{ el.textContent=MESSAGES[i]; el.classList.add('show'); },120);
+}
+
+// ---- audio ----
+let actx=null;
+function beep(freq,dur,type){
+  if(!soundOn) return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq; o.connect(g); g.connect(actx.destination);
+    const t=actx.currentTime;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.28,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur+0.02);
+  }catch(e){}
+}
+const chime=(kind)=>{
+  if(kind==='focus'){ beep(660,0.16); setTimeout(()=>beep(990,0.22),150); }
+  else if(kind==='break'){ beep(520,0.2,'triangle'); }
+  else if(kind==='long'){ beep(523,0.18); setTimeout(()=>beep(659,0.18),170); setTimeout(()=>beep(784,0.4),340); }
+};
+
+// ---- wake lock ----
+let wake=null;
+async function lock(){ try{ if('wakeLock' in navigator) wake=await navigator.wakeLock.request('screen'); }catch(e){} }
+function unlock(){ try{ wake&&wake.release&&wake.release(); wake=null; }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&running) lock(); });
+
+function phase(){ return PLAN[idx]; }
+function accentFor(t){ return t==='focus'?'var(--focus)':(t==='long'?'var(--done)':'var(--break)'); }
+
+function paint(){
+  const p=phase(), TOTAL=totalFocus();
+  const finalLong = p.type==='long' && idx===PLAN.length-1;
+  document.documentElement.style.setProperty('--accent', finalLong?'var(--done)':(p.type==='long'?'var(--break)':accentFor(p.type)));
+  document.body.classList.toggle('is-break', p.type==='break' || (p.type==='long' && !finalLong));
+  document.body.classList.toggle('is-done', finalLong);
+
+  const m=Math.floor(remaining/60), s=remaining%60, tstr=`${m}:${String(s).padStart(2,'0')}`;
+  $('time').textContent=tstr;
+  document.title=(running?tstr+' · ':'')+(p.type==='focus'?'Focus':p.type==='long'?'Block done':'Break');
+
+  const atStart = idx===0 && !running && remaining===PLAN[0].len;
+  const isFinal = idx===PLAN.length-1;
+  const label = p.type==='focus'?'Focus'
+      : (p.type==='long'?(isFinal?'Block Complete':'Long Break'):'Break');
+  $('state').textContent = running? label : (atStart?'Ready':label+' · paused');
+  $('of').textContent = p.type==='focus'?`Session ${p.s} of ${TOTAL}`
+      : p.type==='long'?(isFinal?'Done — take a proper break'
+            :`Proper break · next: Session ${PLAN[idx+1]?PLAN[idx+1].s:''}`)
+      : `Breathe · next: Session ${PLAN[idx+1]?PLAN[idx+1].s:''}`;
+
+  $('fg').style.strokeDashoffset=CIRC*(1-remaining/p.len);
+
+  const pips=$('pips'); pips.innerHTML='';
+  const done=PLAN.slice(0,idx).filter(x=>x.type==='focus').length;
+  for(let k=0;k<TOTAL;k++){
+    const d=document.createElement('div'); d.className='pip';
+    if(k<done) d.classList.add('done');
+    if(p.type==='focus'&&p.s-1===k) d.classList.add(running?'active':'done');
+    if(p.type==='break'&&PLAN[idx+1]&&PLAN[idx+1].s-1===k) d.classList.add('activebreak');
+    pips.appendChild(d);
+  }
+
+  $('main').textContent = running?'Pause':(atStart?'Start':'Resume');
+  $('skip').disabled = !running && atStart;
+  $('reset').disabled = atStart;
+  $('setup').classList.toggle('locked', running || !atStart);
+  $('dur').disabled = running || !atStart;
+}
+
+function tick(){
+  if(!running) return;
+  remaining=Math.max(0,Math.round((endAt-Date.now())/1000));
+  paint();
+  if(remaining<=0){ advance(); return; }
+  raf=requestAnimationFrame(tick);
+}
+function advance(){
+  running=false; cancelAnimationFrame(raf);
+  if(idx>=PLAN.length-1){ chime('long'); idx=0; remaining=PLAN[0].len; unlock(); paint(); return; }
+  idx++; remaining=phase().len; chime(phase().type);
+  if(phase().type==='focus') nextMessage();
+  start();
+}
+function start(){
+  running=true; endAt=Date.now()+remaining*1000; lock();
+  if(actx&&actx.state==='suspended') actx.resume();
+  paint(); raf=requestAnimationFrame(tick);
+}
+function pause(){ running=false; cancelAnimationFrame(raf); remaining=Math.max(0,Math.round((endAt-Date.now())/1000)); unlock(); paint(); }
+
+function applyDuration(){
+  sessions=Math.max(1,Math.round(durMin/30));
+  PLAN=buildPlan(sessions);
+  idx=0; remaining=PLAN[0].len;
+  syncSlider(); paint();
+}
+
+$('main').onclick=()=>{
+  if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(actx&&actx.state==='suspended') actx.resume();
+  running?pause():start();
+};
+$('skip').onclick=()=>{ cancelAnimationFrame(raf); running=false; advance(); };
+$('reset').onclick=()=>{ cancelAnimationFrame(raf); running=false; idx=0; remaining=PLAN[0].len; unlock(); nextMessage(); paint(); };
+$('sound').onclick=()=>{ soundOn=!soundOn; $('sound').textContent=soundOn?'SOUND ON':'SOUND OFF'; if(soundOn) beep(880,0.08); };
+$('dur').addEventListener('input',e=>{
+  durMin=Math.round(parseInt(e.target.value,10)/30)*30;   // snap to nearest 30
+  localStorage.setItem('primaryDurMin',durMin);
+  applyDuration();
+});
+
+// init
+syncSlider(); nextMessage(); paint();
+</script>
+</body>
+</html>
